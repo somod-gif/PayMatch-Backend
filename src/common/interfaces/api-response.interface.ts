@@ -1,0 +1,10 @@
+/**
+ * Standard API response wrapper for consistent response structure.
+ */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  timestamp: string;
+}
