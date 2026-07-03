@@ -1,0 +1,167 @@
+// ============================================================
+// PayMatch Database Schema
+// Prisma ORM - PostgreSQL (Neon Serverless)
+// ============================================================
+// This schema defines the core data models for the PayMatch
+// B2B SaaS payment reconciliation platform.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// BusinessOwner Model
+// Represents businesses/merchants using PayMatch platform
+// ============================================================
+model BusinessOwner {
+  id           String   @id @default(uuid())
+  businessName String
+  email        String   @unique
+  password     String   // Hashed password
+  phone        String?
+  status       String   @default("active") // active | inactive | suspended
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  customers    Customer[]
+  invoices     Invoice[]
+
+  @@map("business_owners")
+}
+
+// ============================================================
+// Customer Model
+// Represents the Business Owner's customers (payers)
+// ============================================================
+model Customer {
+  id                String   @id @default(uuid())
+  businessOwnerId   String
+  fullName          String
+  email             String?
+  phone             String?
+  customerReference String   @unique // Business-specific customer ID
+  status            String   @default("active") // active | inactive
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  businessOwner BusinessOwner @relation(fields: [businessOwnerId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
+  payments      Payment[]
+
+  @@map("customers")
+}
+
+// ============================================================
+// Invoice Model
+// Represents payment requests created by Business Owners
+// ============================================================
+model Invoice {
+  id              String   @id @default(uuid())
+  invoiceNumber   String   @unique
+  businessOwnerId String
+  customerId      String
+  description     String
+  expectedAmount  Decimal  @db.Decimal(19, 2)
+  currency        String   @default("NGN")
+  status          String   @default("pending") // pending | paid | overdue | cancelled | partial
+  dueDate         DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  businessOwner BusinessOwner   @relation(fields: [businessOwnerId], references: [id], onDelete: Cascade)
+  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  virtualAccount VirtualAccount?
+  payments      Payment[]
+
+  @@map("invoices")
+}
+
+// ============================================================
+// VirtualAccount Model
+// Represents Nomba-generated virtual accounts for invoices
+// ============================================================
+model VirtualAccount {
+  id               String   @id @default(uuid())
+  invoiceId        String   @unique
+  nombaAccountNumber String  @unique
+  accountName      String
+  bankName         String
+  accountReference String   @unique
+  expiryDate       DateTime?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("virtual_accounts")
+}
+
+// ============================================================
+// Payment Model
+// Represents payment transactions from customers
+// ============================================================
+model Payment {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  customerId      String
+  merchantTxRef   String   @unique // Merchant's transaction reference
+  amount          Decimal  @db.Decimal(19, 2)
+  currency        String   @default("NGN")
+  status          String   @default("pending") // pending | success | failed | refunded
+  paymentMethod   String?  // transfer | ussd | card
+  receivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@map("payments")
+}
+
+// ============================================================
+// WebhookEvent Model
+// Audit trail for all incoming webhook events from Nomba
+// ============================================================
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  requestId   String   @unique
+  eventType   String
+  status      String   @default("received") // received | processed | failed
+  payload     Json     @db.JsonB
+  processedAt DateTime?
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@map("webhook_events")
+}
+
+// ============================================================
+// AuditLog Model
+// Comprehensive audit trail for compliance and debugging
+// ============================================================
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // create | update | delete | webhook_received | payment_processed
+  actor     String   // business_owner_id | system | webhook
+  resource  String   // customer | invoice | payment | webhook
+  resourceId String?
+  metadata  Json?    @db.JsonB
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}

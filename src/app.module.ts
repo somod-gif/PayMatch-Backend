@@ -2,6 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { WebhookModule } from './webhook/webhook.module';
+import { AuthModule } from './auth/auth.module';
+import { CustomersModule } from './customers/customers.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { PaymentsModule } from './payments/payments.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { NombaModule } from './nomba/nomba.module';
+import { PrismaModule } from './prisma/prisma.module';
 import appConfig from './config/app.config';
 
 /**
@@ -19,8 +26,21 @@ import appConfig from './config/app.config';
       load: [appConfig],
       envFilePath: '.env',
     }),
+
+    // Database module (global - provides PrismaService everywhere)
+    PrismaModule,
+
+    // Nomba integration module (provides reusable Nomba services)
+    NombaModule,
+
+    // Feature modules
     HealthModule,
     WebhookModule,
+    AuthModule,
+    CustomersModule,
+    InvoicesModule,
+    PaymentsModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

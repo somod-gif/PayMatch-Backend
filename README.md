@@ -1,98 +1,265 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# PayMatch API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**Payment Reconciliation Platform** — Built for the DevCareer × Nomba Hackathon 2026.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+A secure, scalable NestJS backend foundation demonstrating production-ready engineering practices and readiness for Nomba API integration.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Architecture
 
-## Project setup
-
-```bash
-$ npm install
+```
+src/
+├── auth/           # Authentication module (register/login)
+├── common/         # Shared utilities, filters, constants, interfaces
+├── config/         # Environment configuration
+├── customers/      # Customer management module
+├── dashboard/      # Dashboard summary and metrics
+├── health/         # Health check endpoints
+├── invoices/       # Invoice management module
+├── nomba/          # Nomba integration services (reusable)
+├── payments/       # Payment transaction module
+├── prisma/         # Database service (Prisma ORM)
+├── shared/         # Cross-cutting concerns (logging)
+└── webhook/        # Nomba webhook handling
 ```
 
-## Compile and run the project
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Feature-first modules** | Each module is self-contained with controller, service, DTOs — enables independent development |
+| **Prisma ORM** | Type-safe database access with auto-generated client and migration support |
+| **Global validation pipe** | All DTOs validated automatically — whitelist strips unknown properties |
+| **Global exception filter** | Standardized error responses across all endpoints |
+| **Structured logging** | Request/response logging with sensitive data sanitization |
+| **Helmet middleware** | Security headers for production readiness |
+| **Swagger documentation** | Auto-generated API docs at `/api/docs` |
+| **Nomba service abstractions** | Interfaces and services ready for OAuth, virtual accounts, transactions, webhook verification |
+
+---
+
+## Tech Stack
+
+- **Runtime:** Node.js
+- **Framework:** NestJS 11
+- **Language:** TypeScript
+- **Database:** PostgreSQL
+- **ORM:** Prisma 5
+- **Validation:** class-validator + class-transformer
+- **Security:** Helmet, CORS, HMAC SHA-256
+- **Documentation:** Swagger/OpenAPI
+
+---
+
+## Prerequisites
+
+- Node.js >= 18
+- PostgreSQL >= 14
+- npm >= 9
+
+---
+
+## Setup
+
+### 1. Clone and install
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+git clone https://github.com/somod-gif/PayMatch-Backend.git
+cd paymatch-backend
+npm install
 ```
 
-## Run tests
+### 2. Configure environment
+
+Create a `.env` file in the project root with your credentials:
+
+```env
+PORT=5000
+CORS_ORIGIN=*
+DATABASE_URL=postgresql://user:password@host:5432/database
+NOMBA_ACCOUNT_ID=
+NOMBA_SUB_ACCOUNT_ID=
+NOMBA_CLIENT_ID=
+NOMBA_PRIVATE_KEY=
+NOMBA_WEBHOOK_SECRET=your-webhook-secret
+```
+
+> **SECURITY:** Never commit `.env` to version control. Keep all secrets local.
+
+### 3. Set up database
 
 ```bash
-# unit tests
-$ npm run test
+# Generate Prisma client
+npx prisma generate
 
-# e2e tests
-$ npm run test:e2e
+# Run migrations (creates tables)
+npx prisma migrate dev --name init
 
-# test coverage
-$ npm run test:cov
+# (Optional) Seed sample data
+npx prisma db seed
 ```
+
+### 4. Start development server
+
+```bash
+npm run start:dev
+```
+
+---
+
+## API Endpoints
+
+### Health
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check status |
+| GET | `/` | API information |
+
+### Authentication
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/auth/register` | Register a new customer |
+| POST | `/api/v1/auth/login` | Customer login (placeholder) |
+
+### Customers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/customers` | List all customers |
+| POST | `/api/v1/customers` | Create a customer |
+| GET | `/api/v1/customers/:id` | Get customer by ID |
+| PATCH | `/api/v1/customers/:id` | Update customer |
+| DELETE | `/api/v1/customers/:id` | Deactivate customer |
+
+### Invoices
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/invoices` | List all invoices |
+| POST | `/api/v1/invoices` | Create an invoice |
+| GET | `/api/v1/invoices/:id` | Get invoice by ID |
+| PATCH | `/api/v1/invoices/:id` | Update invoice |
+
+### Payments
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/payments` | List payments (with filters) |
+| POST | `/api/v1/payments` | Record a payment |
+| GET | `/api/v1/payments/:id` | Get payment by ID |
+| GET | `/api/v1/payments/reference/:ref` | Get payment by reference |
+
+### Dashboard
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/dashboard/summary` | Dashboard metrics summary |
+
+### Webhooks ⚠️ (No version prefix)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/webhooks/nomba` | Receive Nomba webhook events |
+
+> **IMPORTANT:** The webhook endpoint `POST /webhooks/nomba` is a production integration already registered with Nomba. It must NOT be prefixed with `/api/v1` or any versioned route. Backward compatibility is mandatory.
+
+### Documentation
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/docs` | Swagger API documentation |
+
+---
+
+## Nomba Integration Foundation
+
+The following reusable services are prepared for Nomba API integration:
+
+| Service | Purpose | Status |
+|---------|---------|--------|
+| `NombaAuthService` | OAuth authentication with token caching | Placeholder |
+| `NombaVirtualAccountService` | Virtual account creation and management | Placeholder |
+| `NombaTransactionService` | Payment initiation and transfer processing | Placeholder |
+| `NombaWebhookVerificationService` | HMAC SHA-256 signature verification | Implemented |
+
+Each service uses TypeScript interfaces defined in `src/nomba/interfaces/nomba.interface.ts` and is ready for actual HTTP implementation after Stage 1.
+
+---
+
+## Security
+
+- **Helmet** — Sets secure HTTP headers
+- **CORS** — Configurable origin restrictions
+- **ValidationPipe** — Input validation and sanitization
+- **HMAC SHA-256** — Webhook signature verification
+- **Request logging** — Structured logging with sensitive data redaction
+- **Environment variables** — All secrets managed via `.env`
+
+---
+
+## Scripts
+
+```bash
+npm run start:dev    # Development with hot reload
+npm run build        # Production build
+npm run start:prod   # Run production build
+npm run lint         # Lint code
+npm run test         # Run unit tests
+npm run test:e2e     # Run e2e tests
+```
+
+### Database CLI
+
+```bash
+npx prisma generate          # Generate Prisma Client
+npx prisma migrate dev       # Run migrations
+npx prisma studio            # Open Prisma Studio GUI
+```
+
+---
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Build
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Run
 
-## Resources
+```bash
+npm run start:prod
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Environment Variables
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Ensure all required environment variables are set in your deployment environment (see `.env.example`).
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Project Status
 
-## Stay in touch
+**Stage 1 — Build Progress** ✅
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- [x] Modular NestJS architecture
+- [x] Configuration module with environment variables
+- [x] Health check endpoints
+- [x] Nomba webhook endpoint with HMAC verification
+- [x] Idempotent webhook handling
+- [x] Structured logging and error handling
+- [x] Prisma ORM with PostgreSQL models
+- [x] Auth, Customers, Invoices, Payments, Dashboard modules
+- [x] Nomba integration services (OAuth, Virtual Accounts, Transactions)
+- [x] Swagger API documentation
+- [x] Security (Helmet, CORS, ValidationPipe)
+- [x] Deployment readiness
+
+---
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT — Built for the DevCareer × Nomba Hackathon 2026.
