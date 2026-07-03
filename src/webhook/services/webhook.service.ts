@@ -2,86 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NombaWebhookPayloadDto } from '../dto/nomba-webhook-payload.dto';
 
-/**
- * Service responsible for processing incoming Nomba webhooks.
- *
- * Current implementation: Logs incoming webhooks and acknowledges receipt.
- *
- * TODO: Implement HMAC SHA-256 signature verification
- *  - Extract signature from request headers (e.g., x-nomba-signature)
- *  - Compute HMAC SHA-256 hash using NOMBA_WEBHOOK_SECRET
- *  - Compare computed signature with header signature
- *  - Reject request with 401 if signature mismatch
- *  - Reference: ConfigService.get('nomba.webhookSecret')
- *
- * TODO: Implement idempotency using event.requestId
- *  - Check if requestId has been processed before (cache/DB lookup)
- *  - Return previously stored response if already processed
- *  - Store processed requestId with TTL to prevent duplicate processing
- *  - Use Redis or database for distributed idempotency
- *
- * TODO: Handle Payment Success events
- *  - Parse event.data for payment details (amount, reference, status)
- *  - Update transaction status in database
- *  - Trigger reconciliation flow
- *  - Dispatch success notification
- *
- * TODO: Handle Virtual Account Funding events
- *  - Parse event.data for account number, amount, sender details
- *  - Credit the virtual account balance
- *  - Create transaction record
- *  - Notify account holder
- *
- * TODO: Handle Transfer Success events
- *  - Parse event.data for transfer reference, recipient, amount
- *  - Update transfer status to successful
- *  - Update related transaction records
- *
- * TODO: Handle Transfer Failed events
- *  - Parse event.data for failure reason and transfer reference
- *  - Update transfer status to failed
- *  - Trigger retry logic if applicable
- *  - Notify relevant parties
- *
- * TODO: Implement database persistence
- *  - Save all webhook events to webhook_events table
- *  - Store raw payload, event type, status, timestamps
- *  - Enable audit trail and replay capabilities
- *
- * TODO: Implement audit logging
- *  - Log all webhook processing steps with timestamps
- *  - Track who/what triggered the event
- *  - Store before/after state changes for compliance
- *
- * TODO: Implement background event processing
- *  - Use Bull/BullMQ queue for async processing
- *  - Decouple webhook receipt from business logic execution
- *  - Enable retry and failure handling
- *
- * TODO: Implement retry handling
- *  - Configure retry strategy (exponential backoff, max attempts)
- *  - Store failed events for manual reprocessing
- *  - Implement dead letter queue for permanently failed events
- *
- * TODO: Implement notification dispatch
- *  - Send real-time notifications via WebSocket/Socket.IO
- *  - Send email/SMS notifications for critical events
- *  - Integrate with push notification services
- */
 @Injectable()
 export class WebhookService {
   private readonly logger = new Logger(WebhookService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Processes an incoming Nomba webhook payload.
-   * Verifies signature, checks idempotency, and processes payment events.
-   *
-   * @param payload - The validated webhook payload
-   * @param headers - The raw request headers for signature verification
-   * @returns Acknowledgment response
-   */
   async processWebhook(
     payload: NombaWebhookPayloadDto,
     headers: Record<string, string>,
@@ -91,7 +17,6 @@ export class WebhookService {
     let webhookEventId: string | undefined;
 
     try {
-      // Check idempotency using requestId
       if (payload.requestId) {
         try {
           const existingEvent = await this.prisma.webhookEvent.findFirst({
@@ -106,11 +31,10 @@ export class WebhookService {
             };
           }
         } catch (error) {
-          this.logger.warn(`Could not check idempotency: ${error.message}`);
+          this.logger.warn(`Could not check idempotency: ${(error as Error).message}`);
         }
       }
 
-      // Save webhook event to database
       try {
         const webhookEvent = await this.prisma.webhookEvent.create({
           data: {
@@ -122,10 +46,9 @@ export class WebhookService {
         });
         webhookEventId = webhookEvent.id;
       } catch (error) {
-        this.logger.warn(`Could not save webhook event to database: ${error.message}`);
+        this.logger.warn(`Could not save webhook event to database: ${(error as Error).message}`);
       }
 
-      // Route to appropriate handler based on event type
       switch (payload.event) {
         case 'payment.success':
           await this.handlePaymentSuccess(payload.data);
@@ -143,7 +66,6 @@ export class WebhookService {
           this.logger.warn(`Unknown event type: ${payload.event}`);
       }
 
-      // Update webhook event status to processed
       if (webhookEventId) {
         try {
           await this.prisma.webhookEvent.update({
@@ -154,7 +76,7 @@ export class WebhookService {
             } as any,
           });
         } catch (error) {
-          this.logger.warn(`Could not update webhook event status: ${error.message}`);
+          this.logger.warn(`Could not update webhook event status: ${(error as Error).message}`);
         }
       }
 
@@ -163,24 +85,22 @@ export class WebhookService {
         message: 'Webhook processed successfully.',
       };
     } catch (error) {
-      this.logger.error(`Error processing webhook: ${error.message}`, error.stack);
+      this.logger.error(`Error processing webhook: ${(error as Error).message}`, (error as Error).stack);
 
-      // Update webhook event status to failed
       if (webhookEventId) {
         try {
           await this.prisma.webhookEvent.update({
             where: { id: webhookEventId },
             data: {
               status: 'failed',
-              error: error.message,
+              error: (error as Error).message,
             } as any,
           });
         } catch (updateError) {
-          this.logger.warn(`Could not update webhook event status: ${updateError.message}`);
+          this.logger.warn(`Could not update webhook event status: ${(updateError as Error).message}`);
         }
       }
 
-      // Still return success to Nomba to avoid retries
       return {
         received: true,
         message: 'Webhook received but processing failed.',
@@ -188,19 +108,14 @@ export class WebhookService {
     }
   }
 
-  /**
-   * Handles payment success events from Nomba
-   */
   private async handlePaymentSuccess(data: any) {
     this.logger.log(`Processing payment success: ${JSON.stringify(data)}`);
 
     try {
-      // Extract payment details from webhook data
       const { reference, amount, invoiceNumber, customerEmail } = data;
 
-      // Find invoice by invoice number
       const invoice = await this.prisma.invoice.findFirst({
-        where: { invoiceNumber: invoiceNumber },
+        where: { invoiceNumber: invoiceNumber } as any,
         include: { customer: true },
       });
 
@@ -209,7 +124,6 @@ export class WebhookService {
         return;
       }
 
-      // Check if payment already exists
       const existingPayment = await this.prisma.payment.findFirst({
         where: { merchantTxRef: reference },
       } as any);
@@ -219,7 +133,6 @@ export class WebhookService {
         return;
       }
 
-      // Create payment record
       const payment = await this.prisma.payment.create({
         data: {
           invoiceId: invoice.id,
@@ -237,7 +150,6 @@ export class WebhookService {
         },
       });
 
-      // Update invoice status
       const totalPaid = await this.prisma.payment.aggregate({
         where: { invoiceId: invoice.id, status: 'success' },
         _sum: { amount: true },
@@ -263,33 +175,19 @@ export class WebhookService {
 
       this.logger.log(`Payment recorded successfully: ${payment.id}, Invoice status: ${invoiceStatus}`);
     } catch (error) {
-      this.logger.error(`Error in handlePaymentSuccess: ${error.message}`, error.stack);
-      // Don't throw - we want to continue processing other webhooks
+      this.logger.error(`Error in handlePaymentSuccess: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
-  /**
-   * Handles virtual account funding events
-   */
   private async handleVirtualAccountFunding(data: any) {
     this.logger.log(`Processing virtual account funding: ${JSON.stringify(data)}`);
-    // Implementation for virtual account funding
-    // This would typically credit the virtual account balance
   }
 
-  /**
-   * Handles transfer success events
-   */
   private async handleTransferSuccess(data: any) {
     this.logger.log(`Processing transfer success: ${JSON.stringify(data)}`);
-    // Implementation for transfer success
   }
 
-  /**
-   * Handles transfer failed events
-   */
   private async handleTransferFailed(data: any) {
     this.logger.log(`Processing transfer failed: ${JSON.stringify(data)}`);
-    // Implementation for transfer failure
   }
 }
