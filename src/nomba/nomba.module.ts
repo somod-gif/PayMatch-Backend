@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { NombaAuthService } from './services/nomba-auth.service';
 import { NombaVirtualAccountService } from './services/nomba-virtual-account.service';
 import { NombaTransactionService } from './services/nomba-transaction.service';
@@ -11,6 +12,7 @@ import { NombaWebhookVerificationService } from './services/nomba-webhook-verifi
  * Exports all services so feature modules can inject them directly.
  */
 @Module({
+  imports: [HttpModule],
   providers: [
     NombaAuthService,
     NombaVirtualAccountService,

@@ -143,6 +143,13 @@ npm run start:dev
 | GET | `/api/v1/invoices/:id` | Get invoice by ID |
 | PATCH | `/api/v1/invoices/:id` | Update invoice |
 
+### Virtual Accounts
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/virtual-accounts` | List all virtual accounts |
+| POST | `/api/v1/virtual-accounts` | Create a virtual account for an invoice |
+
 ### Payments
 
 | Method | Path | Description |
@@ -151,6 +158,9 @@ npm run start:dev
 | POST | `/api/v1/payments` | Record a payment |
 | GET | `/api/v1/payments/:id` | Get payment by ID |
 | GET | `/api/v1/payments/reference/:ref` | Get payment by reference |
+| GET | `/api/v1/payments/link/:invoiceNumber` | Get payment link for an invoice |
+| GET | `/api/v1/payments/share/:invoiceNumber` | Get payment share information |
+| POST | `/api/v1/payments/send-email/:invoiceNumber` | Send invoice email to customer |
 
 ### Dashboard
 

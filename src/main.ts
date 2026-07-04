@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { LoggerInterceptor } from './shared/logger.interceptor';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -40,16 +41,20 @@ async function bootstrap() {
   // Global logger interceptor for structured HTTP logging
   app.useGlobalInterceptors(new LoggerInterceptor());
 
+  // Auth middleware to extract user ID from headers
+  app.use(new AuthMiddleware().use.bind(new AuthMiddleware()));
+
   // Swagger API documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('PayMatch API')
     .setDescription('Payment Reconciliation Platform - Nomba Hackathon 2026')
     .setVersion('1.0.0')
     .addTag('Health', 'Health check and API information endpoints')
-    .addTag('Authentication', 'Customer registration and login endpoints')
+    .addTag('Authentication', 'Business owner registration and login endpoints')
     .addTag('Customers', 'Customer management endpoints')
     .addTag('Invoices', 'Invoice management endpoints')
     .addTag('Payments', 'Payment transaction endpoints')
+    .addTag('Virtual Accounts', 'Virtual account creation and management endpoints')
     .addTag('Dashboard', 'Dashboard summary and metrics endpoints')
     .addTag('Webhooks', 'Incoming webhook endpoints for Nomba events')
     .addBearerAuth()

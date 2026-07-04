@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Headers, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { WebhookService } from '../services/webhook.service';
 import { NombaWebhookPayloadDto } from '../dto/nomba-webhook-payload.dto';
 
@@ -8,6 +9,7 @@ import { NombaWebhookPayloadDto } from '../dto/nomba-webhook-payload.dto';
  * All webhook endpoints are prefixed with /webhooks.
  * Business logic is delegated to WebhookService.
  */
+@ApiTags('Webhooks')
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -26,6 +28,35 @@ export class WebhookController {
    * @returns Acknowledgment response
    */
   @Post('nomba')
+  @ApiOperation({ 
+    summary: 'Receive Nomba webhook events',
+    description: 'Endpoint for receiving webhook events from Nomba. Used for payment notifications, virtual account funding, and transfer events.'
+  })
+  @ApiHeader({ 
+    name: 'x-nomba-signature', 
+    description: 'HMAC SHA-256 signature for webhook verification',
+    required: false 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Webhook received and processed successfully',
+    schema: {
+      example: {
+        received: true,
+        message: 'Webhook processed successfully.'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Duplicate webhook ignored',
+    schema: {
+      example: {
+        received: true,
+        message: 'Webhook already processed.'
+      }
+    }
+  })
   async handleNombaWebhook(
     @Body() payload: NombaWebhookPayloadDto,
     @Headers() headers: Record<string, string>,

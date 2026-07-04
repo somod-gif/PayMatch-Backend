@@ -20,4 +20,8 @@ export default () => ({
     privateKey: process.env.NOMBA_PRIVATE_KEY ?? '',
     webhookSecret: process.env.NOMBA_WEBHOOK_SECRET ?? 'NombaHackathon2026',
   },
+
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
+
+  paymentUrl: process.env.PAYMENT_URL ?? 'https://paymatch-frontend.vercel.app',
 });

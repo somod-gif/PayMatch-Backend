@@ -7,6 +7,7 @@ import { CustomersModule } from './customers/customers.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { VirtualAccountsModule } from './virtual-accounts/virtual-accounts.module';
 import { NombaModule } from './nomba/nomba.module';
 import { PrismaModule } from './prisma/prisma.module';
 import appConfig from './config/app.config';
@@ -41,6 +42,7 @@ import appConfig from './config/app.config';
     InvoicesModule,
     PaymentsModule,
     DashboardModule,
+    VirtualAccountsModule,
   ],
 })
 export class AppModule {}
