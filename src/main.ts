@@ -17,11 +17,11 @@ async function bootstrap() {
   // Security: Helmet middleware for HTTP headers
   app.use(helmet());
 
-  // Security: CORS configuration
+  // Security: CORS configuration - allow all origins for hackathon
   app.enableCors({
-    origin: configService.get<string>('corsOrigin', '*'),
+    origin: true, // Reflect the request origin (allows any origin)
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-nomba-signature'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-nomba-signature', 'Accept'],
     credentials: true,
   });
 
