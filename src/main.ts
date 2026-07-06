@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { LoggerInterceptor } from './shared/logger.interceptor';

@@ -23,5 +23,7 @@ export default () => ({
 
   resendApiKey: process.env.RESEND_API_KEY ?? '',
 
+  geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+
   paymentUrl: process.env.PAYMENT_URL ?? 'https://paymatch-frontend.vercel.app',
 });
