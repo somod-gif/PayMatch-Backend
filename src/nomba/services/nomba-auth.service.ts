@@ -70,7 +70,9 @@ export class NombaAuthService {
 
     try {
       const url = `${this.baseUrl}/v1/auth/token/issue`;
+      const accountId = this.configService.get<string>('nomba.accountId');
       this.logger.log(`[Nomba Auth] POST ${url}`);
+      this.logger.log(`[Nomba Auth] Headers: Content-Type, accountId: ${accountId ? '***' + accountId.slice(-4) : 'MISSING'}`);
 
       const response = await lastValueFrom(
         this.httpService.post(url, {
@@ -81,6 +83,8 @@ export class NombaAuthService {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            // Nomba requires accountId header on the auth request itself
+            ...(accountId ? { 'accountId': accountId } : {}),
           },
         }),
       );
