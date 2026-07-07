@@ -110,6 +110,29 @@ export class NombaVirtualAccountService {
         this.logger.log(`[Nomba VA] Response body: ${JSON.stringify(response.data)}`);
       }
 
+      // Nomba API returns 200 even for validation errors, with error in response body
+      // Check for Nomba-specific error indicators
+      const responseData = response.data;
+      const isNombaError = responseData?.status === false 
+        || responseData?.code === '400' 
+        || responseData?.code === 400
+        || (responseData?.data?.status === false)
+        || (responseData?.data?.code === '400')
+        || (responseData?.data?.code === 400);
+      
+      if (isNombaError) {
+        const errorMessage = responseData?.message 
+          || responseData?.description 
+          || responseData?.data?.message 
+          || responseData?.data?.description 
+          || 'Validation error from Nomba';
+        this.logger.error(`[Nomba VA] Nomba API error: ${errorMessage}`);
+        throw new HttpException(
+          { success: false, message: `Virtual account creation failed: ${errorMessage}`, nombaError: responseData },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // Parse response - Nomba may return data in different formats
       const data = response.data?.data || response.data;
 
@@ -117,6 +140,15 @@ export class NombaVirtualAccountService {
         this.logger.error(`[Nomba VA] Response missing data: ${JSON.stringify(response.data)}`);
         throw new HttpException(
           { success: false, message: 'Virtual account creation failed - invalid response from Nomba' },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+      
+      // Validate required fields from Nomba response
+      if (!data.account_name && !data.accountNumber && !data.account_number) {
+        this.logger.error(`[Nomba VA] Missing account number in response: ${JSON.stringify(data)}`);
+        throw new HttpException(
+          { success: false, message: 'Virtual account creation failed - no account number returned from Nomba' },
           HttpStatus.BAD_GATEWAY,
         );
       }
