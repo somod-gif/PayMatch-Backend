@@ -14,7 +14,11 @@ import {
  * Nomba Transaction service.
  * Handles payment initiation, transfer processing, and transaction queries.
  *
- * API Endpoint: POST /transactions/payment
+ * API Endpoints:
+ *   - POST {baseUrl}/transactions/payment
+ *   - POST {baseUrl}/transfers
+ *   - GET {baseUrl}/transactions/{reference}
+ *
  * Headers:
  *   - Authorization: Bearer {access_token}
  *   - accountId: {NOMBA_ACCOUNT_ID}
@@ -24,13 +28,15 @@ import {
 export class NombaTransactionService {
   private readonly logger = new Logger(NombaTransactionService.name);
   private readonly baseUrl: string;
+  private readonly isProduction: boolean;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly authService: NombaAuthService,
     private readonly httpService: HttpService,
   ) {
-    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://api.nomba.com/v1');
+    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://sandbox.nomba.com');
+    this.isProduction = this.baseUrl.includes('api.nomba.com');
   }
 
   /**
@@ -41,7 +47,7 @@ export class NombaTransactionService {
     const token = await this.authService.getAccessToken();
     const accountId = this.configService.get<string>('nomba.accountId');
 
-    this.logger.log(`Initiating payment: ${request.reference}`);
+    this.logger.log(`[Nomba TXN] Initiating payment: ${request.reference}`);
 
     if (!accountId) {
       throw new HttpException(
@@ -52,6 +58,7 @@ export class NombaTransactionService {
 
     try {
       const url = `${this.baseUrl}/transactions/payment`;
+      this.logger.log(`[Nomba TXN] POST ${url}`);
 
       const payload = {
         amount: request.amount,
@@ -63,7 +70,7 @@ export class NombaTransactionService {
         callback_url: request.callbackUrl,
       };
 
-      this.logger.log(`Nomba payment request: ${JSON.stringify(payload)}`);
+      this.logger.log(`[Nomba TXN] Request payload: ${JSON.stringify(payload)}`);
 
       const response = await lastValueFrom(
         this.httpService.post(url, payload, {
@@ -76,8 +83,11 @@ export class NombaTransactionService {
         }),
       );
 
-      this.logger.log(`Nomba payment response status: ${response.status}`);
-      this.logger.log(`Nomba payment response: ${JSON.stringify(response.data)}`);
+      this.logger.log(`[Nomba TXN] Response status: ${response.status}`);
+
+      if (!this.isProduction) {
+        this.logger.log(`[Nomba TXN] Response body: ${JSON.stringify(response.data)}`);
+      }
 
       const data = response.data?.data || response.data;
 
@@ -98,7 +108,7 @@ export class NombaTransactionService {
       const status = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
       if (errorData) {
-        this.logger.error(`Nomba payment error: ${JSON.stringify(errorData)}`);
+        this.logger.error(`[Nomba TXN] Error response: ${JSON.stringify(errorData)}`);
       }
 
       const errorMessage = errorData?.message
@@ -106,7 +116,7 @@ export class NombaTransactionService {
         || error?.message
         || 'Unknown error initiating payment';
 
-      this.logger.error(`Payment initiation failed: ${errorMessage}`);
+      this.logger.error(`[Nomba TXN] Payment initiation failed: ${errorMessage}`);
 
       throw new HttpException(
         { success: false, message: `Payment initiation failed: ${errorMessage}` },
@@ -122,7 +132,7 @@ export class NombaTransactionService {
     const token = await this.authService.getAccessToken();
     const accountId = this.configService.get<string>('nomba.accountId');
 
-    this.logger.log(`Processing transfer: ${request.reference}`);
+    this.logger.log(`[Nomba TRF] Processing transfer: ${request.reference}`);
 
     if (!accountId) {
       throw new HttpException(
@@ -133,6 +143,7 @@ export class NombaTransactionService {
 
     try {
       const url = `${this.baseUrl}/transfers`;
+      this.logger.log(`[Nomba TRF] POST ${url}`);
 
       const payload = {
         amount: request.amount,
@@ -144,7 +155,7 @@ export class NombaTransactionService {
         narration: request.narration || 'Transfer',
       };
 
-      this.logger.log(`Nomba transfer request: ${JSON.stringify(payload)}`);
+      this.logger.log(`[Nomba TRF] Request payload: ${JSON.stringify(payload)}`);
 
       const response = await lastValueFrom(
         this.httpService.post(url, payload, {
@@ -156,6 +167,8 @@ export class NombaTransactionService {
           },
         }),
       );
+
+      this.logger.log(`[Nomba TRF] Response status: ${response.status}`);
 
       const data = response.data?.data || response.data;
 
@@ -175,7 +188,7 @@ export class NombaTransactionService {
       const status = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
       if (errorData) {
-        this.logger.error(`Nomba transfer error: ${JSON.stringify(errorData)}`);
+        this.logger.error(`[Nomba TRF] Error response: ${JSON.stringify(errorData)}`);
       }
 
       const errorMessage = errorData?.message
@@ -183,7 +196,7 @@ export class NombaTransactionService {
         || error?.message
         || 'Unknown error processing transfer';
 
-      this.logger.error(`Transfer processing failed: ${errorMessage}`);
+      this.logger.error(`[Nomba TRF] Transfer processing failed: ${errorMessage}`);
 
       throw new HttpException(
         { success: false, message: `Transfer failed: ${errorMessage}` },
@@ -199,10 +212,11 @@ export class NombaTransactionService {
     const token = await this.authService.getAccessToken();
     const accountId = this.configService.get<string>('nomba.accountId');
 
-    this.logger.log(`Querying transaction: ${reference}`);
+    this.logger.log(`[Nomba TXN] Querying transaction: ${reference}`);
 
     try {
       const url = `${this.baseUrl}/transactions/${reference}`;
+      this.logger.log(`[Nomba TXN] GET ${url}`);
 
       const response = await lastValueFrom(
         this.httpService.get(url, {
@@ -213,6 +227,8 @@ export class NombaTransactionService {
           },
         }),
       );
+
+      this.logger.log(`[Nomba TXN] Response status: ${response.status}`);
 
       const data = response.data?.data || response.data;
 
@@ -238,7 +254,7 @@ export class NombaTransactionService {
         || error?.message
         || 'Unknown error querying transaction';
 
-      this.logger.error(`Transaction query failed: ${errorMessage}`);
+      this.logger.error(`[Nomba TXN] Transaction query failed: ${errorMessage}`);
       throw new HttpException(
         { success: false, message: `Transaction query failed: ${errorMessage}` },
         error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,

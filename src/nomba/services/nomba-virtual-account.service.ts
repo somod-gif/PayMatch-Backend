@@ -12,7 +12,7 @@ import {
  * Nomba Virtual Account service.
  * Creates and manages virtual accounts for customer payments.
  *
- * API Endpoint: POST /virtual-accounts
+ * API Endpoint: POST {baseUrl}/virtual-accounts
  * Headers:
  *   - Authorization: Bearer {access_token}
  *   - accountId: {NOMBA_ACCOUNT_ID}
@@ -29,13 +29,15 @@ import {
 export class NombaVirtualAccountService {
   private readonly logger = new Logger(NombaVirtualAccountService.name);
   private readonly baseUrl: string;
+  private readonly isProduction: boolean;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly authService: NombaAuthService,
     private readonly httpService: HttpService,
   ) {
-    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://api.nomba.com/v1');
+    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://sandbox.nomba.com');
+    this.isProduction = this.baseUrl.includes('api.nomba.com');
   }
 
   /**
@@ -49,7 +51,7 @@ export class NombaVirtualAccountService {
     const accountId = this.configService.get<string>('nomba.accountId');
     const subAccountId = this.configService.get<string>('nomba.subAccountId');
 
-    this.logger.log(`Creating virtual account for: ${request.customerEmail}`);
+    this.logger.log(`[Nomba VA] Creating virtual account for: ${request.customerEmail}`);
 
     if (!accountId) {
       throw new HttpException(
@@ -60,6 +62,7 @@ export class NombaVirtualAccountService {
 
     try {
       const url = `${this.baseUrl}/virtual-accounts`;
+      this.logger.log(`[Nomba VA] POST ${url}`);
 
       // Build request payload matching Nomba API specification
       const payload: Record<string, any> = {
@@ -81,7 +84,7 @@ export class NombaVirtualAccountService {
         payload.reference = request.invoiceReference;
       }
 
-      this.logger.log(`Nomba VA request payload: ${JSON.stringify(payload)}`);
+      this.logger.log(`[Nomba VA] Request payload: ${JSON.stringify(payload)}`);
 
       const response = await lastValueFrom(
         this.httpService.post(url, payload, {
@@ -94,14 +97,18 @@ export class NombaVirtualAccountService {
         }),
       );
 
-      this.logger.log(`Nomba VA response status: ${response.status}`);
-      this.logger.log(`Nomba VA response body: ${JSON.stringify(response.data)}`);
+      this.logger.log(`[Nomba VA] Response status: ${response.status}`);
+
+      // Log response body in development only
+      if (!this.isProduction) {
+        this.logger.log(`[Nomba VA] Response body: ${JSON.stringify(response.data)}`);
+      }
 
       // Parse response - Nomba may return data in different formats
       const data = response.data?.data || response.data;
 
       if (!data) {
-        this.logger.error(`Nomba VA response missing data: ${JSON.stringify(response.data)}`);
+        this.logger.error(`[Nomba VA] Response missing data: ${JSON.stringify(response.data)}`);
         throw new HttpException(
           { success: false, message: 'Virtual account creation failed - invalid response from Nomba' },
           HttpStatus.BAD_GATEWAY,
@@ -126,7 +133,7 @@ export class NombaVirtualAccountService {
 
       // Log the full Nomba error response
       if (errorData) {
-        this.logger.error(`Nomba VA error response: ${JSON.stringify(errorData)}`);
+        this.logger.error(`[Nomba VA] Error response: ${JSON.stringify(errorData)}`);
       }
 
       // Extract the exact error message from Nomba
@@ -136,8 +143,9 @@ export class NombaVirtualAccountService {
         || error?.message
         || 'Unknown error during virtual account creation';
 
-      this.logger.error(`Nomba virtual account creation failed: ${errorMessage}`);
+      this.logger.error(`[Nomba VA] Virtual account creation failed: ${errorMessage}`);
 
+      // Return the real Nomba error instead of generic message
       throw new HttpException(
         {
           success: false,
@@ -156,10 +164,11 @@ export class NombaVirtualAccountService {
     const token = await this.authService.getAccessToken();
     const accountId = this.configService.get<string>('nomba.accountId');
 
-    this.logger.log(`Fetching virtual account: ${accountNumber}`);
+    this.logger.log(`[Nomba VA] Fetching virtual account: ${accountNumber}`);
 
     try {
       const url = `${this.baseUrl}/virtual-accounts/${accountNumber}`;
+      this.logger.log(`[Nomba VA] GET ${url}`);
 
       const response = await lastValueFrom(
         this.httpService.get(url, {
@@ -170,6 +179,8 @@ export class NombaVirtualAccountService {
           },
         }),
       );
+
+      this.logger.log(`[Nomba VA] Response status: ${response.status}`);
 
       const data = response.data?.data || response.data;
 
@@ -195,7 +206,7 @@ export class NombaVirtualAccountService {
         || error?.message
         || 'Unknown error fetching virtual account';
 
-      this.logger.error(`Failed to fetch virtual account ${accountNumber}: ${errorMessage}`);
+      this.logger.error(`[Nomba VA] Failed to fetch virtual account ${accountNumber}: ${errorMessage}`);
       throw new HttpException(
         { success: false, message: `Failed to fetch virtual account: ${errorMessage}` },
         error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,

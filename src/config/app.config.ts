@@ -14,10 +14,11 @@ export default () => ({
   },
 
   nomba: {
-    baseUrl: process.env.NOMBA_BASE_URL ?? 'https://api.nomba.com/v1',
+    baseUrl: process.env.NOMBA_BASE_URL ?? 'https://sandbox.nomba.com',
     accountId: process.env.NOMBA_ACCOUNT_ID ?? '',
     subAccountId: process.env.NOMBA_SUB_ACCOUNT_ID ?? '',
     clientId: process.env.NOMBA_CLIENT_ID ?? '',
+    clientSecret: process.env.NOMBA_CLIENT_SECRET ?? '',
     privateKey: process.env.NOMBA_PRIVATE_KEY ?? '',
     webhookSecret: process.env.NOMBA_WEBHOOK_SECRET ?? 'NombaHackathon2026',
   },

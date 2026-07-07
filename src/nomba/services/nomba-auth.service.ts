@@ -8,10 +8,11 @@ import { NombaAuthToken } from '../interfaces/nomba.interface';
  * Nomba OAuth authentication service.
  * Handles token acquisition, caching, and automatic refresh.
  *
- * Authentication Flow:
- * 1. POST to Nomba OAuth token endpoint with client_id and private_key
- * 2. Cache the access token in-memory with expiry buffer
- * 3. Return valid token, refreshing automatically when expired
+ * Authentication Flow (Sandbox):
+ * 1. POST to {NOMBA_BASE_URL}/v1/auth/token/issue
+ * 2. Body: { client_id, client_secret, grant_type: 'client_credentials' }
+ * 3. Cache the access token in-memory with expiry buffer
+ * 4. Return valid token, refreshing automatically when expired
  */
 @Injectable()
 export class NombaAuthService {
@@ -19,12 +20,14 @@ export class NombaAuthService {
   private cachedToken: NombaAuthToken | null = null;
   private tokenExpiry: Date | null = null;
   private readonly baseUrl: string;
+  private readonly isProduction: boolean;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://api.nomba.com/v1');
+    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://sandbox.nomba.com');
+    this.isProduction = this.baseUrl.includes('api.nomba.com');
   }
 
   /**
@@ -45,30 +48,34 @@ export class NombaAuthService {
 
   /**
    * Authenticates with Nomba API using OAuth client credentials.
-   * POST to /auth/token with client_id and private_key.
+   * POST to /v1/auth/token/issue with client_id and client_secret.
    */
   private async authenticate(): Promise<NombaAuthToken> {
     const clientId = this.configService.get<string>('nomba.clientId');
+    const clientSecret = this.configService.get<string>('nomba.clientSecret');
     const privateKey = this.configService.get<string>('nomba.privateKey');
 
-    if (!clientId || !privateKey) {
+    // Use client_secret if available, otherwise fall back to private_key
+    const secret = clientSecret || privateKey;
+
+    if (!clientId || !secret) {
       throw new HttpException(
         {
           success: false,
-          message: 'Nomba API credentials not configured. Set NOMBA_CLIENT_ID and NOMBA_PRIVATE_KEY in .env',
+          message: 'Nomba API credentials not configured. Set NOMBA_CLIENT_ID and NOMBA_CLIENT_SECRET (or NOMBA_PRIVATE_KEY) in .env',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
 
     try {
-      this.logger.log('Requesting Nomba OAuth token...');
-      const url = `${this.baseUrl}/auth/token`;
+      const url = `${this.baseUrl}/v1/auth/token/issue`;
+      this.logger.log(`[Nomba Auth] POST ${url}`);
 
       const response = await lastValueFrom(
         this.httpService.post(url, {
           client_id: clientId,
-          private_key: privateKey,
+          client_secret: secret,
           grant_type: 'client_credentials',
         }, {
           headers: {
@@ -78,10 +85,10 @@ export class NombaAuthService {
         }),
       );
 
-      this.logger.log(`Nomba OAuth response status: ${response.status}`);
+      this.logger.log(`[Nomba Auth] Response status: ${response.status}`);
 
       if (!response.data.access_token) {
-        this.logger.error(`Nomba auth response missing access_token: ${JSON.stringify(response.data)}`);
+        this.logger.error(`[Nomba Auth] Response missing access_token: ${JSON.stringify(response.data)}`);
         throw new HttpException(
           { success: false, message: 'Nomba authentication failed - invalid response' },
           HttpStatus.UNAUTHORIZED,
@@ -100,17 +107,20 @@ export class NombaAuthService {
       }
 
       const status = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
-      const errorMessage = error?.response?.data?.message
-        || error?.response?.data?.error
+      const errorData = error?.response?.data;
+
+      // Log full error in development only
+      if (!this.isProduction && errorData) {
+        this.logger.error(`[Nomba Auth] Error response: ${JSON.stringify(errorData)}`);
+      }
+
+      const errorMessage = errorData?.message
+        || errorData?.error
+        || errorData?.error_description
         || error?.message
         || 'Unknown error during Nomba authentication';
 
-      this.logger.error(`Nomba authentication failed: ${errorMessage}`);
-
-      // Log the full error for debugging
-      if (error?.response?.data) {
-        this.logger.error(`Nomba auth error details: ${JSON.stringify(error.response.data)}`);
-      }
+      this.logger.error(`[Nomba Auth] Authentication failed: ${errorMessage}`);
 
       throw new HttpException(
         { success: false, message: `Nomba authentication failed: ${errorMessage}` },
