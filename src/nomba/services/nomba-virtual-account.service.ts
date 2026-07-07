@@ -8,23 +8,25 @@ import {
   NombaVirtualAccountResponse,
 } from '../interfaces/nomba.interface';
 
-/**
- * Nomba Virtual Account service.
- * Creates and manages virtual accounts for customer payments.
- *
- * API Endpoint: POST {baseUrl}/virtual-accounts
- * Headers:
- *   - Authorization: Bearer {access_token}
- *   - accountId: {NOMBA_ACCOUNT_ID}
- *   - Content-Type: application/json
- *
- * Request Body:
- *   - customer_email: string (required)
- *   - customer_name: string (required)
- *   - phone: string (optional)
- *   - preferred_bank: string (optional)
- *   - sub_account_id: string (optional)
- */
+  /**
+   * Nomba Virtual Account service.
+   * Creates and manages virtual accounts for customer payments.
+   *
+   * API Endpoint: POST {baseUrl}/v1/accounts/virtual/{subAccountId}
+   * Headers:
+   *   - Authorization: Bearer {access_token}
+   *   - accountId: {NOMBA_ACCOUNT_ID} (Parent Account ID)
+   *   - Content-Type: application/json
+   *
+   * Virtual accounts are provisioned under the SUB ACCOUNT, not the parent account.
+   * The subAccountId is passed as a path parameter.
+   *
+   * Request Body:
+   *   - customer_email: string (required)
+   *   - customer_name: string (required)
+   *   - account_name: string (required)
+   *   - phone: string (optional)
+   */
 @Injectable()
 export class NombaVirtualAccountService {
   private readonly logger = new Logger(NombaVirtualAccountService.name);
@@ -60,25 +62,29 @@ export class NombaVirtualAccountService {
       );
     }
 
+    if (!subAccountId) {
+      throw new HttpException(
+        { success: false, message: 'Nomba sub account ID not configured. Set NOMBA_SUB_ACCOUNT_ID in .env' },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     try {
-      const url = `${this.baseUrl}/virtual-accounts`;
+      // Virtual accounts are created under the sub-account
+      // POST /v1/accounts/virtual/{subAccountId}
+      const url = `${this.baseUrl}/v1/accounts/virtual/${subAccountId}`;
       this.logger.log(`[Nomba VA] POST ${url}`);
 
       // Build request payload matching Nomba API specification
       const payload: Record<string, any> = {
         customer_email: request.customerEmail,
         customer_name: request.customerName,
+        account_name: request.customerName,
       };
 
       // Add optional fields if provided
       if (request.phone) {
         payload.phone = request.phone;
-      }
-      if (request.preferredBank) {
-        payload.preferred_bank = request.preferredBank;
-      }
-      if (subAccountId) {
-        payload.sub_account_id = subAccountId;
       }
       if (request.invoiceReference) {
         payload.reference = request.invoiceReference;
@@ -163,11 +169,17 @@ export class NombaVirtualAccountService {
   async getVirtualAccount(accountNumber: string): Promise<NombaVirtualAccountResponse | null> {
     const token = await this.authService.getAccessToken();
     const accountId = this.configService.get<string>('nomba.accountId');
+    const subAccountId = this.configService.get<string>('nomba.subAccountId');
 
     this.logger.log(`[Nomba VA] Fetching virtual account: ${accountNumber}`);
 
+    if (!subAccountId) {
+      this.logger.warn('[Nomba VA] No sub account ID configured, cannot fetch virtual account');
+      return null;
+    }
+
     try {
-      const url = `${this.baseUrl}/virtual-accounts/${accountNumber}`;
+      const url = `${this.baseUrl}/v1/accounts/virtual/${subAccountId}/${accountNumber}`;
       this.logger.log(`[Nomba VA] GET ${url}`);
 
       const response = await lastValueFrom(
