@@ -91,7 +91,10 @@ export class NombaAuthService {
 
       this.logger.log(`[Nomba Auth] Response status: ${response.status}`);
 
-      if (!response.data.access_token) {
+      // Nomba wraps the token in a 'data' object: { code, status, data: { access_token, ... } }
+      const tokenData = response.data?.data || response.data;
+
+      if (!tokenData?.access_token) {
         this.logger.error(`[Nomba Auth] Response missing access_token: ${JSON.stringify(response.data)}`);
         throw new HttpException(
           { success: false, message: 'Nomba authentication failed - invalid response' },
@@ -100,10 +103,10 @@ export class NombaAuthService {
       }
 
       return {
-        accessToken: response.data.access_token,
-        expiresIn: response.data.expires_in ?? 3600,
-        tokenType: response.data.token_type ?? 'Bearer',
-        scope: response.data.scope,
+        accessToken: tokenData.access_token,
+        expiresIn: tokenData.expires_in ?? 3600,
+        tokenType: tokenData.token_type ?? 'Bearer',
+        scope: tokenData.scope,
       };
     } catch (error: any) {
       if (error instanceof HttpException) {
