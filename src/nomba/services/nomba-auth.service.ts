@@ -1,28 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { lastValueFrom } from 'rxjs';
 import { NombaAuthToken } from '../interfaces/nomba.interface';
 
 /**
- * Reusable service for Nomba OAuth authentication.
- * Handles token acquisition, caching, and refresh.
+ * Nomba OAuth authentication service.
+ * Handles token acquisition, caching, and automatic refresh.
  *
- * TODO: Implement actual HTTP calls to Nomba OAuth endpoint
- * - Use POST to Nomba auth URL with client credentials
- * - Cache the access token in-memory or Redis
- * - Implement token refresh before expiry
- * - Handle 401 responses with automatic retry
+ * Authentication Flow:
+ * 1. POST to Nomba OAuth token endpoint with client_id and private_key
+ * 2. Cache the access token in-memory with expiry buffer
+ * 3. Return valid token, refreshing automatically when expired
  */
 @Injectable()
 export class NombaAuthService {
   private readonly logger = new Logger(NombaAuthService.name);
   private cachedToken: NombaAuthToken | null = null;
   private tokenExpiry: Date | null = null;
+  private readonly baseUrl: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+  ) {
+    this.baseUrl = this.configService.get<string>('nomba.baseUrl', 'https://api.nomba.com/v1');
+  }
 
   /**
    * Returns a valid access token, reusing cached token if not expired.
-   * Placeholder implementation returning demo token.
+   * Automatically acquires a new token if cached token is expired or missing.
    */
   async getAccessToken(): Promise<string> {
     if (this.cachedToken && this.tokenExpiry && this.tokenExpiry > new Date()) {
@@ -37,35 +44,85 @@ export class NombaAuthService {
   }
 
   /**
-   * Authenticates with Nomba API using client credentials.
-   * Placeholder - implements actual OAuth flow after Stage 1.
+   * Authenticates with Nomba API using OAuth client credentials.
+   * POST to /auth/token with client_id and private_key.
    */
   private async authenticate(): Promise<NombaAuthToken> {
-    // TODO: Implement actual OAuth authentication
-    // const response = await this.httpService.post('/auth/token', {
-    //   client_id: this.configService.get('nomba.clientId'),
-    //   private_key: this.configService.get('nomba.privateKey'),
-    //   grant_type: 'client_credentials',
-    // }).toPromise();
-    //
-    // return {
-    //   accessToken: response.data.access_token,
-    //   expiresIn: response.data.expires_in,
-    //   tokenType: response.data.token_type,
-    // };
+    const clientId = this.configService.get<string>('nomba.clientId');
+    const privateKey = this.configService.get<string>('nomba.privateKey');
 
-    this.logger.warn('Nomba OAuth not yet implemented - using placeholder token');
+    if (!clientId || !privateKey) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Nomba API credentials not configured. Set NOMBA_CLIENT_ID and NOMBA_PRIVATE_KEY in .env',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
 
-    return {
-      accessToken: 'placeholder_nomba_token',
-      expiresIn: 3600,
-      tokenType: 'Bearer',
-    };
+    try {
+      this.logger.log('Requesting Nomba OAuth token...');
+      const url = `${this.baseUrl}/auth/token`;
+
+      const response = await lastValueFrom(
+        this.httpService.post(url, {
+          client_id: clientId,
+          private_key: privateKey,
+          grant_type: 'client_credentials',
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        }),
+      );
+
+      this.logger.log(`Nomba OAuth response status: ${response.status}`);
+
+      if (!response.data.access_token) {
+        this.logger.error(`Nomba auth response missing access_token: ${JSON.stringify(response.data)}`);
+        throw new HttpException(
+          { success: false, message: 'Nomba authentication failed - invalid response' },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      return {
+        accessToken: response.data.access_token,
+        expiresIn: response.data.expires_in ?? 3600,
+        tokenType: response.data.token_type ?? 'Bearer',
+        scope: response.data.scope,
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const status = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
+      const errorMessage = error?.response?.data?.message
+        || error?.response?.data?.error
+        || error?.message
+        || 'Unknown error during Nomba authentication';
+
+      this.logger.error(`Nomba authentication failed: ${errorMessage}`);
+
+      // Log the full error for debugging
+      if (error?.response?.data) {
+        this.logger.error(`Nomba auth error details: ${JSON.stringify(error.response.data)}`);
+      }
+
+      throw new HttpException(
+        { success: false, message: `Nomba authentication failed: ${errorMessage}` },
+        status,
+      );
+    }
   }
 
   private cacheToken(token: NombaAuthToken): void {
     this.cachedToken = token;
-    this.tokenExpiry = new Date(Date.now() + (token.expiresIn - 300) * 1000); // 5 min buffer
+    // Cache for expiresIn minus 5 minutes buffer to ensure token is still valid
+    this.tokenExpiry = new Date(Date.now() + (token.expiresIn - 300) * 1000);
     this.logger.log(`Nomba token cached, expires at ${this.tokenExpiry.toISOString()}`);
   }
 

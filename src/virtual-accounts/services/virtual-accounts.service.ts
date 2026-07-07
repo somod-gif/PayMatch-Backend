@@ -38,7 +38,8 @@ export class VirtualAccountsService {
     const nombaResponse = await this.nombaVirtualAccountService.createVirtualAccount({
       customerName: invoice.customer.fullName,
       customerEmail: invoice.customer.email || '',
-      customerId: invoice.customer.id,
+      phone: invoice.customer.phone || undefined,
+      invoiceReference: invoice.invoiceNumber || undefined,
     });
 
     // Create virtual account in database

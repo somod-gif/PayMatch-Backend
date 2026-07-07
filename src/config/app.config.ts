@@ -14,6 +14,7 @@ export default () => ({
   },
 
   nomba: {
+    baseUrl: process.env.NOMBA_BASE_URL ?? 'https://api.nomba.com/v1',
     accountId: process.env.NOMBA_ACCOUNT_ID ?? '',
     subAccountId: process.env.NOMBA_SUB_ACCOUNT_ID ?? '',
     clientId: process.env.NOMBA_CLIENT_ID ?? '',

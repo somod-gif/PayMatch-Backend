@@ -1,7 +1,6 @@
 /**
  * Nomba API service interfaces.
- * These abstractions define the contract for Nomba integration,
- * allowing implementation to be completed after Stage 1.
+ * These interfaces match the Nomba API specification.
  */
 
 export interface NombaAuthToken {
@@ -12,11 +11,12 @@ export interface NombaAuthToken {
 }
 
 export interface NombaVirtualAccountRequest {
-  customerId: string;
   customerEmail: string;
   customerName: string;
   phone?: string;
   preferredBank?: string;
+  /** Optional: reference to link this VA to an invoice */
+  invoiceReference?: string;
 }
 
 export interface NombaVirtualAccountResponse {
@@ -24,6 +24,10 @@ export interface NombaVirtualAccountResponse {
   accountNumber: string;
   bankName: string;
   providerReference: string;
+  /** Optional: bank code returned by Nomba */
+  bankCode?: string;
+  /** Optional: reserved amount if set */
+  reservedAmount?: number;
 }
 
 export interface NombaTransactionRequest {
