@@ -11,19 +11,19 @@ export interface NombaAuthToken {
 }
 
 export interface NombaVirtualAccountRequest {
-  customerEmail: string;
-  customerName: string;
-  phone?: string;
-  preferredBank?: string;
-  /** Optional: reference to link this VA to an invoice */
-  invoiceReference?: string;
+  accountRef: string;
+  accountName: string;
+  expectedAmount: number;
 }
 
 export interface NombaVirtualAccountResponse {
+  accountRef: string;
   accountName: string;
   accountNumber: string;
   bankName: string;
-  providerReference: string;
+  amount: number;
+  currency: string;
+  paymentStatus: 'PENDING';
   /** Optional: bank code returned by Nomba */
   bankCode?: string;
   /** Optional: reserved amount if set */

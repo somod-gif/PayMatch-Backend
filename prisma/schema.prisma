@@ -55,6 +55,7 @@ model Customer {
   businessOwner BusinessOwner @relation(fields: [businessOwnerId], references: [id], onDelete: Cascade)
   invoices      Invoice[]
   payments      Payment[]
+  virtualAccounts VirtualAccount[]
 
   @@map("customers")
 }
@@ -91,19 +92,26 @@ model Invoice {
 // Represents Nomba-generated virtual accounts for invoices
 // ============================================================
 model VirtualAccount {
-  id               String   @id @default(uuid())
-  invoiceId        String   @unique
-  nombaAccountNumber String  @unique
-  accountName      String
-  bankName         String
-  accountReference String   @unique
-  expiryDate       DateTime?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  invoiceId          String   @unique
+  customerId         String
+  accountRef         String   @unique
+  bankName           String
+  bankAccountNumber  String   @unique
+  bankAccountName    String
+  currency           String   @default("NGN")
+  expectedAmount     Decimal  @db.Decimal(19, 2)
+  nombaAccountNumber String   @unique
+  accountName        String
+  accountReference   String   @unique
+  expiryDate         DateTime?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relationships
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@map("virtual_accounts")
 }
