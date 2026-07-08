@@ -25,6 +25,17 @@ export default () => ({
 
   resendApiKey: process.env.RESEND_API_KEY ?? '',
 
+  // Verified sender address, e.g. "PayMatch <noreply@yourdomain.com>".
+  // Must use a domain verified at https://resend.com/domains or Resend will
+  // reject sends to anyone other than the account owner (free/test tier).
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'PayMatch <onboarding@resend.dev>',
+
+  // On the free/test tier (resend.dev), Resend can only deliver to the
+  // account owner. When a customer send is rejected, the email is re-routed
+  // to this address so it is still delivered for testing. Set to the address
+  // you want to receive these test copies (defaults to the Resend owner).
+  resendTestRecipient: process.env.RESEND_TEST_RECIPIENT ?? 'eniolabadmus351@gmail.com',
+
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
 
   paymentUrl: process.env.PAYMENT_URL ?? 'https://paymatch-frontend.vercel.app',

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiNotFoundResponse, ApiBadRequestResponse, ApiCreatedResponse } from '@nestjs/swagger';
 import { PaymentsService } from '../services/payments.service';
 import { EmailService } from '../services/email.service';
@@ -114,6 +114,17 @@ export class PaymentsController {
     @Req() req: any,
   ) {
     const businessOwnerId = req.user?.id;
-    return this.paymentsService.sendInvoiceEmail(invoiceNumber, dto.email, businessOwnerId, this.emailService);
+    const result = await this.paymentsService.sendInvoiceEmail(
+      invoiceNumber,
+      dto.email,
+      businessOwnerId,
+      this.emailService,
+    );
+
+    if (!result.success) {
+      throw new BadRequestException(result.message);
+    }
+
+    return result;
   }
 }
